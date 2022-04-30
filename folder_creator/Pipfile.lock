@@ -1,0 +1,24 @@
+{
+    "_meta": {
+        "hash": {
+            "sha256": "0449029c2859626e2ed25db4fad072f8be96dfce377f232cb12a0d3487bba916"
+        },
+        "pipfile-spec": 6,
+        "requires": {
+            "python_version": "3.8"
+        },
+        "sources": [
+            {
+                "name": "pypi",
+                "url": "https://pypi.org/simple",
+                "verify_ssl": true
+            }
+        ]
+    },
+    "default": {
+        "pb-tool": {
+            "file": "http://geoapt.net/files/pb_tool.zip"
+        }
+    },
+    "develop": {}
+}
