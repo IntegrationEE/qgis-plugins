@@ -26,15 +26,22 @@ from math import ceil
 import shutil
 
 
+
+
+
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
 from qgis.core import Qgis,QgsVectorLayer,QgsVectorFileWriter,QgsProject
+from qgis.core import QgsProcessingFeedback,QgsProcessingContext
 # Initialize Qt resources from file resources.py
 from .resources import *
 # Import the code for the dialog
 from .folder_creator_dialog import FolderCreatorDialog
 import os
+
+# import and initialize models
+from .models_and_styles import Grid_reduced,A4FieldPaper
 
 
 class FolderCreator:
@@ -71,7 +78,45 @@ class FolderCreator:
         # Check if plugin was started the first time in current QGIS session
         # Must be set in initGui() to survive plugin reloads
         self.first_start = None
+
+    def generate_grids_and_grid_reduced(self,grid_path,type,feature,cluster_path=None,grid_reduced_path=None):
         
+       
+
+        if type == "grid":
+             # create layer
+            vector_layer = QgsVectorLayer("Polygon", "temporary_polygon", "memory")
+            data_provider = vector_layer.dataProvider()
+
+            # add a feature
+            data_provider.addFeatures([feature])
+            vector_layer.updateExtents()
+            grid = A4FieldPaper()
+            feedback =  QgsProcessingFeedback()
+            model_context = QgsProcessingContext()
+
+            parameters = {
+                    "residentialboundary":vector_layer,
+                    "Final":grid_path
+            }
+            grid.initAlgorithm()
+            grid.processAlgorithm(parameters=parameters,model_feedback=feedback,context=model_context)
+            del(vector_layer)
+        
+        if type == "grid_reduced":
+
+            grid_reduced = Grid_reduced()
+            feedback =  QgsProcessingFeedback()
+            model_context = QgsProcessingContext()
+
+            parameters = {
+                    "grid":grid_path,
+                    "outline":cluster_path,
+                    "Grid_reduced":grid_reduced_path
+            }
+            grid_reduced.initAlgorithm()
+            grid_reduced.processAlgorithm(parameters=parameters,model_feedback=feedback,context=model_context)
+
     def generate_folders(self):
 
         joined_layer:QgsVectorLayer = self.dlg.joined_layer.currentLayer()
@@ -80,7 +125,7 @@ class FolderCreator:
         settlement_id_name:str = 'Name' if self.dlg.settlement_id_column_name.text() =="" else self.dlg.settlement_id_column_name.text()
         output_folder:str = self.dlg.output_folder.filePath()
         progress_bar = self.dlg.progress_bar
-
+        
         #sanity checks
 
         if not (joined_layer.isSpatial() and isinstance(joined_layer,QgsVectorLayer)):
@@ -120,10 +165,8 @@ class FolderCreator:
 
            
             for index,feature in enumerate(joined_layer.getFeatures()):
-
                 
                 joined_layer.select(feature.id())
-                
                 progress_bar.setValue(multiplication_factor * index + multiplication_factor) #needs some touches
 
                 cluster_id = feature['cluster_of']  #assumed all cluster id column name are cluster_of
@@ -133,18 +176,41 @@ class FolderCreator:
                 file_name = f"cluster_{cleaned_cluster_id}.gpkg"
                 full_path = os.path.join(output_folder,directory_name)
                 full_file_path = os.path.join(full_path,file_name)
+                grid_path = os.path.join(full_path,"grid.gpkg")
+                grid_reduced_path = os.path.join(full_path,"grid_reduced.gpkg")
 
                 if not os.path.exists(full_path):
                     os.mkdir(full_path)
                     _writer = QgsVectorFileWriter.writeAsVectorFormatV3(
                     joined_layer,full_file_path,context,options
                     )
+
+                    #generate grids and grid reduced
+                    self.generate_grids_and_grid_reduced(grid_path=grid_path,type="grid",feature=feature)
+                    self.generate_grids_and_grid_reduced(
+                        grid_path=grid_path,
+                        grid_reduced_path=grid_reduced_path,
+                        cluster_path=full_file_path,
+                        type="grid_reduced",
+                        feature=feature
+                    )
                     joined_layer.removeSelection()
+
                 else:
                     shutil.rmtree(full_path)
                     os.mkdir(full_path)
                     _writer = QgsVectorFileWriter.writeAsVectorFormatV3(
                         joined_layer,full_file_path,context,options
+                    )
+                    
+                    #generate grids and grid reduced
+                    self.generate_grids_and_grid_reduced(grid_path=grid_path,type="grid",feature=feature)
+                    self.generate_grids_and_grid_reduced(
+                        grid_path=grid_path,
+                        grid_reduced_path=grid_reduced_path,
+                        cluster_path=full_file_path,
+                        type="grid_reduced",
+                        feature=feature
                     )
                     joined_layer.removeSelection()
                 

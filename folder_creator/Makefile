@@ -50,7 +50,7 @@ UI_FILES = folder_creator_dialog_base.ui
 
 EXTRAS = metadata.txt icon.png
 
-EXTRA_DIRS =
+EXTRA_DIRS = models_and_styles
 
 COMPILED_RESOURCE_FILES = resources.py
 
